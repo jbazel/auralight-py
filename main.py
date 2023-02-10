@@ -3,10 +3,17 @@ import numpy as np
 from collections import deque
 import threading
 import time
+import os
 from sklearn import preprocessing as p
 import scipy.fft as fft
-from scipy.signal import savgol_filter
+from scipy.signal import savgol_filter, butter, filtfilt
 import pygame as pg
+
+from kivy.app import App
+from kivy.uix.gridlayout import GridLayout
+from kivy.uix.slider import Slider
+from kivy.uix.label import Label
+from kivy.properties import NumericProperty
 
 
 def main():
@@ -29,34 +36,48 @@ def main():
 
     class StandardVisualiser:
 
-        class Slider:
-            def __init__(self, x, y, min_val, max_val, init_val, name):
-                self.x = x
-                self.y = y
-                self.w = 10
-                self.h = 100
-                self.min = min_val
-                self.max = max_val
-                self.value = init_val
-                self.fill = int(init_val / max_val * self.h)
-                self.name = name
-
-            def draw(self):
-                pg.draw.rect(window_surface, BLACK, (self.x, self.y, self.w, self.h))
-                pg.display.update()
-
-            def update(self, value):
-                self.value = value
-                self.fill = int(value / self.max * self.h)
-                pg.draw.rect(window_surface, BLACK, (self.x, self.y, self.w, self.fill))
-                pg.display.update()
-
         def __init__(self):
             self.fps = 60
-            self.limit = 25
+            self.limit = 150
             self.smooth = 7
             self.bar_width = 3
+            self.scale = 150
             self.run = True
+
+            self.fps_slider = Slider(min=1, max=60, value=60, step=1, size_hint=(0.5, 0.1))
+            self.fps_slider.bind(value=self.set_fps)
+
+            self.limit_slider = Slider(min=1, max=150, value=150, step=1, size_hint=(0.5, 0.1))
+            self.limit_slider.bind(value=self.set_limit)
+
+            self.smooth_slider = Slider(min=2, max=20, value=7, step=1, size_hint=(0.5, 0.1))
+            self.smooth_slider.bind(value=self.set_smooth)
+
+            self.scale_slider = Slider(min=50, max=250, value=10, step=10, size_hint=(0.5, 0.1))
+            self.scale_slider.bind(value=self.set_scale)
+
+            self.app = App()
+            self.app.root = GridLayout(cols=2, rows=4)
+            self.app.root.add_widget(Label(text="FPS"))
+            self.app.root.add_widget(self.fps_slider)
+            self.app.root.add_widget(Label(text="Limit"))
+            self.app.root.add_widget(self.limit_slider)
+            self.app.root.add_widget(Label(text="Smooth"))
+            self.app.root.add_widget(self.smooth_slider)
+            self.app.root.add_widget(Label(text="Scale"))
+            self.app.root.add_widget(self.scale_slider)
+
+        def set_fps(self, instance, value):
+            self.fps = value
+
+        def set_limit(self, instance, value):
+            self.limit = value
+
+        def set_smooth(self, instance, value):
+            self.smooth = value
+
+        def set_scale(self, instance, value):
+            self.scale = value
 
         def audio_buffer_generator(self):
             buff = pa.PyAudio()
@@ -76,22 +97,29 @@ def main():
             stream.close()
             buff.terminate()
 
-        @staticmethod
-        def get_line(local_frame):
+        def get_line(self, local_frame):
             w, h = pg.display.get_surface().get_size()
             yf = fft.rfft(local_frame)
             xf = fft.rfftfreq(len(local_frame), 1 / 44100)
             points_per_freq = len(xf) / (44100 / 2)
             target_idx = int(points_per_freq * 1)
             yf[target_idx - 1: target_idx + 2] = 0
-            xf = p.normalize(xf.reshape(1, -1)) * w * 150
-            yf = p.normalize(np.abs(yf).reshape(1, -1)) * h
+            b, a = butter(8, 0.7, 'high', analog=False)
+            yf = filtfilt(b, a, yf)
+            xf = p.normalize(xf.reshape(1, -1)) * w * self.scale
+            yf = p.normalize(np.abs(yf).reshape(1, -1)) * h * 0.8
             yf = h - yf
+
             return xf, yf
 
         def noise_gate(self, y1, y2):
+            noise_floor = 10
             # only update indices with noticeable change
+
             y2 = np.where(np.abs(np.subtract(y1, y2)) > self.limit, y2, y1)
+            y2 = np.where(y2 > noise_floor, y2, 0)
+
+            # high pass filter
             return savgol_filter(y2, self.smooth, 2)
 
         @staticmethod
@@ -123,7 +151,7 @@ def main():
 
             threading.Thread(target=self.audio_buffer_generator).start()
             threading.Thread(target=self.process_buffer).start()
-
+            self.app.run()
 
     class BarVisualiser(StandardVisualiser):
         def __init__(self):
