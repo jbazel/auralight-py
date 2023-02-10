@@ -1,6 +1,3 @@
-import base64
-
-import menu as menu
 import pyaudio as pa
 import numpy as np
 from collections import deque
@@ -9,20 +6,17 @@ import time
 from sklearn import preprocessing as p
 import scipy.fft as fft
 from scipy.signal import savgol_filter
-import pygame
-import pygame_menu as pgm
-
-import matplotlib.pyplot as plt
-from matplotlib.widgets import Slider, Button
+import pygame as pg
 
 
 def main():
     # sets up pygame
-    pygame.init()
+    pg.init()
 
     # sets up the window
-    window_surface = pygame.display.set_mode((500, 500), 0, 32)
-    pygame.display.set_caption('Line Test')
+    window_surface = pg.display.set_mode((500, 500), 0, 32)
+    pg.display.set_caption('Line Test')
+    pg.event.get()
 
     # sets up the colors
     BLACK = (0, 0, 0)
@@ -34,6 +28,28 @@ def main():
     frames = deque()
 
     class StandardVisualiser:
+
+        class Slider:
+            def __init__(self, x, y, min_val, max_val, init_val, name):
+                self.x = x
+                self.y = y
+                self.w = 10
+                self.h = 100
+                self.min = min_val
+                self.max = max_val
+                self.value = init_val
+                self.fill = int(init_val / max_val * self.h)
+                self.name = name
+
+            def draw(self):
+                pg.draw.rect(window_surface, BLACK, (self.x, self.y, self.w, self.h))
+                pg.display.update()
+
+            def update(self, value):
+                self.value = value
+                self.fill = int(value / self.max * self.h)
+                pg.draw.rect(window_surface, BLACK, (self.x, self.y, self.w, self.fill))
+                pg.display.update()
 
         def __init__(self):
             self.fps = 60
@@ -62,7 +78,7 @@ def main():
 
         @staticmethod
         def get_line(local_frame):
-            w, h = pygame.display.get_surface().get_size()
+            w, h = pg.display.get_surface().get_size()
             yf = fft.rfft(local_frame)
             xf = fft.rfftfreq(len(local_frame), 1 / 44100)
             points_per_freq = len(xf) / (44100 / 2)
@@ -80,8 +96,8 @@ def main():
 
         @staticmethod
         def draw_normal(line):
-            pygame.draw.aalines(window_surface, BLACK, False, line, 1)
-            pygame.display.update()
+            pg.draw.aalines(window_surface, BLACK, False, line, 1)
+            pg.display.update()
             window_surface.fill(WHITE)
 
         def process_buffer(self):
@@ -103,31 +119,11 @@ def main():
                 except IndexError:
                     pass
 
-        def set_FPS(self):
-            self.fps = self.menu.get_size()
-
-        def set_limit(self):
-            self.limit = self.menu.get_input_data()
-
-        def set_smooth(self):
-            self.smooth = self.menu.get_input_data()
-
         def start(self):
-            fig, ax = plt.subplots()
-            ax_fps = fig.add_axes([0.25, 0.1, 0.65, 0.03])
-            fps_slider = Slider(
-                ax=ax_fps,
-                label='Frequency [Hz]',
-                valmin=0.1,
-                valmax=30,
-                valinit=60,
-            )
-
-            fps_slider.on_changed(self.set_FPS)
-
 
             threading.Thread(target=self.audio_buffer_generator).start()
             threading.Thread(target=self.process_buffer).start()
+
 
     class BarVisualiser(StandardVisualiser):
         def __init__(self):
@@ -138,11 +134,11 @@ def main():
             self.bar_width = bar_width
 
         def draw_normal(self, line):
-            w, h = pygame.display.get_surface().get_size()
+            w, h = pg.display.get_surface().get_size()
             for index, (x, y) in enumerate(line):
-                pygame.draw.rect(window_surface, BLACK, (x, y, self.bar_width, h - y))
+                pg.draw.rect(window_surface, BLACK, (x, y, self.bar_width, h - y))
 
-            pygame.display.update()
+            pg.display.update()
             window_surface.fill(WHITE)
 
     vs = BarVisualiser()
