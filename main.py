@@ -53,7 +53,7 @@ def main():
             self.smooth_slider = Slider(min=2, max=20, value=7, step=1, size_hint=(0.5, 0.1))
             self.smooth_slider.bind(value=self.set_smooth)
 
-            self.scale_slider = Slider(min=50, max=250, value=10, step=10, size_hint=(0.5, 0.1))
+            self.scale_slider = Slider(min=50, max=250, value=50, step=10, size_hint=(0.5, 0.1))
             self.scale_slider.bind(value=self.set_scale)
 
             self.app = App()
@@ -104,7 +104,7 @@ def main():
             points_per_freq = len(xf) / (44100 / 2)
             target_idx = int(points_per_freq * 1)
             yf[target_idx - 1: target_idx + 2] = 0
-            b, a = butter(8, 0.7, 'high', analog=False)
+            b, a = butter(8, 0.8, 'high', analog=False)
             yf = filtfilt(b, a, yf)
             xf = p.normalize(xf.reshape(1, -1)) * w * self.scale
             yf = p.normalize(np.abs(yf).reshape(1, -1)) * h * 0.8
@@ -122,12 +122,14 @@ def main():
             # high pass filter
             return savgol_filter(y2, self.smooth, 2)
 
+        # static method to draw the line
         @staticmethod
         def draw_normal(line):
             pg.draw.aalines(window_surface, BLACK, False, line, 1)
             pg.display.update()
             window_surface.fill(WHITE)
 
+        # function to process the audio buffer
         def process_buffer(self):
             while self.run:
                 try:
@@ -153,6 +155,9 @@ def main():
             threading.Thread(target=self.process_buffer).start()
             self.app.run()
 
+    # class definition for the bar visualiser
+    # inherits from the standard visualiser
+
     class BarVisualiser(StandardVisualiser):
         def __init__(self):
             super().__init__()
@@ -164,12 +169,30 @@ def main():
         def draw_normal(self, line):
             w, h = pg.display.get_surface().get_size()
             for index, (x, y) in enumerate(line):
-                pg.draw.rect(window_surface, BLACK, (x, y, self.bar_width, h - y))
+                pg.draw.rect(window_surface, BLACK, (x*self.scale/w, y, self.bar_width, h - y))
 
             pg.display.update()
             window_surface.fill(WHITE)
 
-    vs = BarVisualiser()
+    # class definition for the circle visualiser
+    # inherits from the standard visualiser
+
+    class CircleVisualiser(StandardVisualiser):
+        def __init__(self):
+            super().__init__()
+            self.circle_radius = 3
+
+        def setCircleRadius(self, circle_radius):
+            self.circle_radius = circle_radius
+
+        def draw_normal(self, line):
+            for index, (x, y) in enumerate(line):
+                pg.draw.circle(window_surface, BLACK, (x, y), self.circle_radius)
+
+            pg.display.update()
+            window_surface.fill(WHITE)
+
+    vs = CircleVisualiser()
     vs.start()
 
 
