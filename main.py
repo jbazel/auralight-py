@@ -81,32 +81,37 @@ class VisualizationEngine:
     def draw(self, xf, yf):
 
         w, h = pg.display.get_surface().get_size()
-        xf = xf[:int(len(xf)/2)]
-        yf = yf[:int(len(yf)/2)]
-        count = 40
-        maximum = len(xf)
-        step = (np.emath.log(maximum))/(count -1)
+        # xf = xf[:int(len(xf)/2)]
+        # yf = yf[:int(len(yf)/2)]
 
-        filter_indices = [int(np.e**(x*step)) -1 for x in range(count)]
-        filter_indices = list(dict.fromkeys(filter_indices))
-        count = len(filter_indices)
-        
-        frequencies = xf[filter_indices]
+        # xf = xf.reshape(1, -1) * w * 50
+        # count = 100
+        # maximum = len(xf)
+        # step = (np.emath.logn(5, maximum))/(count -1)
+        #
+        # filter_indices = [int(5**(x*step)) -1 for x in range(count)]
+        # filter_indices = list(dict.fromkeys(filter_indices))
+        # count = len(filter_indices)
 
-        amplitudes = yf[filter_indices]
+        # frequencies = xf[filter_indices]
+        #
+        # amplitudes = yf[filter_indices]
+        #
+        #
+        # x_points = [int((w/count) * i) for i in range(count)]
 
-
-        x_points = [int((w/count) * i) for i in range(count)]
-
-
-        amplitudes = p.normalize(np.abs(amplitudes).reshape(1, -1)) * h * 0.75 + (h / 4)
-        amplitudes = h - amplitudes
+        x_points = np.linspace(0, w, len(xf))
+        yf = p.normalize(np.abs(yf).reshape(1, -1)) * h * 0.75 + (h / 4)
+        yf = h-yf
+        # amplitudes = h - amplitudes
 
         # line = list(zip(x_points, amplitudes.flatten()))
-        line = list(zip(x_points, amplitudes.flatten()))
+        line = list(zip(xf.flatten(), yf.flatten()))
 
-        for index, (x, y) in enumerate(line):
-            pg.draw.circle(window_surface, (0, 0, 0), (x, y), 10)
+        # for index, (x, y) in enumerate(line):
+        #     pg.draw.circle(window_surface, (0, 0, 0), (x, y), 5)
+
+        pg.draw.lines(window_surface, (0, 0, 0), False, line, 1)
 
         window_surface.blit(self.get_fps(), (50, 50))
         pg.display.update()
@@ -118,7 +123,7 @@ if __name__ == "__main__":
     pg.init()
     font = pg.font.SysFont("Arial", 18)
     clock = pg.time.Clock()
-    window_surface = pg.display.set_mode((1500, 500), pygame.RESIZABLE, 32)
+    window_surface = pg.display.set_mode((500, 500), pygame.RESIZABLE, 32)
     pg.display.set_caption('Line Test')
     pg.event.get()
 
@@ -133,3 +138,4 @@ if __name__ == "__main__":
     ve = VisualizationEngine()
     test = AudioProcessor("test.wav", ve)
     test.play()
+    test.close()
